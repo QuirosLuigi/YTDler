@@ -32,6 +32,9 @@ To install the dependencies. You can install it using pip:
     Run the script
     Provide Link, Quality, and Format (quality and format options change based on the video)
 
+    
+If the windows shows (Not Responding) its just downloading the video from youtube 😭. I'm still learning how to do progress bars
+
 
 
 
