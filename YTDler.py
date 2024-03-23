@@ -173,18 +173,27 @@ class YTDownloader(tk.Tk):
 
             # Check if a stream is found
             if video_stream is not None and audio_stream is not None:
+                # Generate unique filenames
+                i = 1
+                video_filename = 'video'
+                audio_filename = 'audio'
+                final_filename = 'final'
+                while os.path.exists(os.path.join(folder_path, f'{video_filename}{i}.{format}')) or \
+                      os.path.exists(os.path.join(folder_path, f'{audio_filename}{i}.mp4')) or \
+                      os.path.exists(os.path.join(folder_path, f'{final_filename}{i}.{format}')):
+                    i += 1
+
                 # Download the video and audio streams
-                video_stream.download(folder_path, filename='video.' + format)
-                audio_stream.download(folder_path, filename='audio.mp4')
+                video_stream.download(folder_path, filename=f'{video_filename}{i}.{format}')
+                audio_stream.download(folder_path, filename=f'{audio_filename}{i}.mp4')
 
                 # Combine the video and audio streams using ffmpeg
-                video_path = os.path.join(folder_path, 'video.' + format)
-                audio_path = os.path.join(folder_path, 'audio.mp4')
-                final_path = os.path.join(folder_path, 'final.' + format)
+                video_path = os.path.join(folder_path, f'{video_filename}{i}.{format}')
+                audio_path = os.path.join(folder_path, f'{audio_filename}{i}.mp4')
+                final_path = os.path.join(folder_path, f'{final_filename}{i}.{format}')
 
                 # Create a command for ffmpeg to combine the video and audio
                 command = f"ffmpeg -i {video_path} -i {audio_path} -c copy -map 0:v -map 1:a {final_path}"
-                #command = f"ffmpeg -i {video_path} -i {audio_path} -c:v copy -c:a aac {final_path}"
 
                 # Execute the command
                 subprocess.call(command, shell=True)
