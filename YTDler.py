@@ -4,6 +4,7 @@ from tkinter import messagebox, filedialog
 import os
 import subprocess
 from tkinter.ttk import Combobox
+import threading
 
 
 class YTDownloader(tk.Tk):
@@ -42,8 +43,8 @@ class YTDownloader(tk.Tk):
         url_label.pack(pady=(20, 10))
 
         # Create an entry field for the YouTube URL input
-        url_entry = tk.Entry(self, textvariable=self.url_input_var, bd=0, fg='#E8EAED', bg='#5F6368')
-        url_entry.pack(ipady=10, fill='x', padx=20)
+        self.url_entry = tk.Entry(self, textvariable=self.url_input_var, bd=0, fg='#E8EAED', bg='#5F6368')
+        self.url_entry.pack(ipady=10, fill='x', padx=20)
 
         # Create a label for the video quality selection
         quality_label = tk.Label(self, text="Quality:", bg='#202124', fg='#E8EAED')
@@ -71,38 +72,41 @@ class YTDownloader(tk.Tk):
 
 
         # Create a button for browsing the folder path
-        browse_button = tk.Button(self, text="Browse", command=self.browse_directory, bg='#3C4043', fg='#E8EAED', bd=0)
-        browse_button.pack(ipady=5, fill='x', padx=20)
+        self.browse_button = tk.Button(self, text="Browse", command=self.browse_directory, bg='#3C4043', fg='#E8EAED', bd=0)
+        self.browse_button.pack(ipady=5, fill='x', padx=20)
 
         # Create a button for starting the video download
-        download_button = tk.Button(self, text="Download", command=self.download_video, bg='#4285F4', fg='#E8EAED', bd=0)
-        download_button.pack(ipady=5, fill='x', padx=20, pady=(10, 20))
+        self.download_button = tk.Button(self, text="Download", command=self.download_video, bg='#4285F4', fg='#E8EAED', bd=0)
+        self.download_button.pack(ipady=5, fill='x', padx=20, pady=(10, 20))
 
     def update_options(self):
         """
         Update the available options for video format and quality based on the YouTube URL input.
         """
         url = self.url_input_var.get()
-        try:
-            yt = YouTube(url)
-            formats = set(stream.mime_type.split('/')[1] for stream in yt.streams)
-            qualities = sorted(set(stream.resolution for stream in yt.streams if stream.resolution), key=lambda x: int(x[:-1]) if x[:-1].isdigit() else 0)
+
+        if url != "":
+            try:
+                yt = YouTube(url)
+                formats = set(stream.mime_type.split('/')[1] for stream in yt.streams)
+                qualities = sorted(set(stream.resolution for stream in yt.streams if stream.resolution), key=lambda x: int(x[:-1]) if x[:-1].isdigit() else 0)
+                
+                # Check if the format or quality has changed
+                if self.format_var.get() not in formats or self.quality_var.get() not in qualities:
+                    self.format_var.set('')  # clear value
+                    self.quality_var.set('')  # clear value
+                    self.format_menu['menu'].delete(0, 'end')
+                    self.quality_menu['menu'].delete(0, 'end')
+                
+                for format in formats:
+                    self.format_menu['menu'].add_command(label=format, command=tk._setit(self.format_var, format))
+                for quality in qualities:
+                    self.quality_menu['menu'].add_command(label=quality, command=tk._setit(self.quality_var, quality))
+                
+                self.quality_var.trace_add("write", self.update_format_options)
+            except Exception as e:
+                messagebox.showerror("Error", f"An error occurred: {e}")
             
-            # Check if the format or quality has changed
-            if self.format_var.get() not in formats or self.quality_var.get() not in qualities:
-                self.format_var.set('')  # clear value
-                self.quality_var.set('')  # clear value
-                self.format_menu['menu'].delete(0, 'end')
-                self.quality_menu['menu'].delete(0, 'end')
-            
-            for format in formats:
-                self.format_menu['menu'].add_command(label=format, command=tk._setit(self.format_var, format))
-            for quality in qualities:
-                self.quality_menu['menu'].add_command(label=quality, command=tk._setit(self.quality_var, quality))
-            
-            self.quality_var.trace_add("write", self.update_format_options)
-        except Exception as e:
-            messagebox.showerror("Error", f"An error occurred: {e}")
 
     def update_format_options(self, *args):
         """
@@ -127,6 +131,21 @@ class YTDownloader(tk.Tk):
         """
         Download the selected YouTube video with the best available audio and chosen format to the specified folder path.
         """
+        # Create a new thread for the download process
+        download_thread = threading.Thread(target=self.download_video_thread)
+        
+        # Gray out all inputs
+        self.url_entry = tk.Entry(self)
+        self.url_entry.config(state='disabled')
+        self.quality_menu.config(state='disabled')
+        self.format_menu.config(state='disabled')
+        self.browse_button.config(state='disabled')
+        self.download_button.config(state='disabled')
+
+        # Start the new thread
+        download_thread.start()
+
+    def download_video_thread(self):
         url = self.url_input_var.get()
         quality = self.quality_var.get()
         format = self.format_var.get()
@@ -175,6 +194,20 @@ class YTDownloader(tk.Tk):
                 os.remove(audio_path)
 
                 messagebox.showinfo("Success", "Download complete")
+
+                # Gray out all inputs
+                self.url_entry = tk.Entry(self)
+                self.url_entry.config(state='normal')
+                self.quality_menu.config(state='normal')
+                self.format_menu.config(state='normal')
+                self.browse_button.config(state='normal')
+                self.download_button.config(state='normal')
+                self.format_menu['menu'].delete(0, 'end')
+                self.quality_menu['menu'].delete(0, 'end')
+                self.format_var.set('')  # clear value
+                self.quality_var.set('')  # clear value
+                self.url_input_var.set('')  # clear value
+
             else:
                 messagebox.showerror("Error", "No stream matches the selected format and quality")
         except Exception as e:
